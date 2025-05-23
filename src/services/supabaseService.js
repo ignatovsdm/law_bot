@@ -1,16 +1,10 @@
+// src/services/supabaseService.js
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config');
 const logger = require('../utils/logger');
 
 const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
 
-/**
- * Находит ID активного диалога для пользователя в чате.
- * Если активного диалога нет, создает новый и возвращает его ID.
- * @param {number} chatId - ID чата Telegram.
- * @param {number} userId - ID пользователя Telegram.
- * @returns {Promise<string|null>} UUID активного диалога или null в случае ошибки.
- */
 async function getActiveDialogueId(chatId, userId) {
   logger.info(`[SupabaseSvc][ChatID: ${chatId}, UserID: ${userId}] Поиск активного диалога...`);
   
@@ -37,12 +31,6 @@ async function getActiveDialogueId(chatId, userId) {
   return createNewDialogue(chatId, userId);
 }
 
-/**
- * Создает новый диалог для пользователя, деактивируя все предыдущие активные диалоги этого пользователя в этом чате.
- * @param {number} chatId - ID чата Telegram.
- * @param {number} userId - ID пользователя Telegram.
- * @returns {Promise<string|null>} UUID нового диалога или null в случае ошибки.
- */
 async function createNewDialogue(chatId, userId) {
   logger.info(`[SupabaseSvc][ChatID: ${chatId}, UserID: ${userId}] Создание нового диалога...`);
   try {
@@ -81,12 +69,6 @@ async function createNewDialogue(chatId, userId) {
   }
 }
 
-/**
- * Загружает историю сообщений для конкретного диалога, предназначенную для LLM.
- * (т.е. только 'user' и 'assistant' роли).
- * @param {string} dialogueId - UUID диалога.
- * @returns {Promise<Array<{role: string, content: string}>>} Массив сообщений.
- */
 async function getDialogueMessagesForLLM(dialogueId) {
   if (!dialogueId) {
     logger.warn(`[SupabaseSvc] Попытка загрузить сообщения для LLM для null/undefined dialogueId.`);
@@ -109,11 +91,6 @@ async function getDialogueMessagesForLLM(dialogueId) {
   return messages;
 }
 
-/**
- * Загружает ВСЕ сообщения для конкретного диалога, включая команды.
- * @param {string} dialogueId - UUID диалога.
- * @returns {Promise<Array<{id: number|string, role: string, content: string, created_at: string, feedback_score: number|null }>>} Массив сообщений.
- */
 async function getAllDialogueMessages(dialogueId) {
     if (!dialogueId) {
       logger.warn(`[SupabaseSvc] Попытка загрузить все сообщения для null/undefined dialogueId.`);
@@ -122,7 +99,7 @@ async function getAllDialogueMessages(dialogueId) {
     logger.info(`[SupabaseSvc][DialogueID: ${dialogueId}] Загрузка ВСЕХ сообщений диалога...`);
     const { data, error } = await supabase
       .from('messages')
-      .select('id, role, content, created_at, feedback_score')  // Добавили id и feedback_score
+      .select('id, role, content, created_at, feedback_score') 
       .eq('dialogue_id', dialogueId)
       .order('created_at', { ascending: true });
   
@@ -135,13 +112,6 @@ async function getAllDialogueMessages(dialogueId) {
     return messages;
   }
 
-/**
- * Сохраняет сообщение в указанный диалог и обновляет last_message_at у диалога.
- * @param {string} dialogueId - UUID диалога.
- * @param {string} role - Роль ('system', 'user', 'assistant', 'user_command').
- * @param {string} content - Содержимое сообщения.
- * @returns {Promise<{id: number|string}|null>} Объект с ID сохраненного сообщения или null.
- */
 async function saveMessage(dialogueId, role, content) {
   if (!dialogueId) {
     logger.error(`[SupabaseSvc] Попытка сохранить сообщение для null/undefined dialogueId.`);
@@ -157,14 +127,14 @@ async function saveMessage(dialogueId, role, content) {
     const { data: insertedMessage, error: messageError } = await supabase
       .from('messages')
       .insert([{ dialogue_id: dialogueId, role, content, created_at: now }])
-      .select('id') // Запрашиваем ID
-      .single();    // Ожидаем один результат
+      .select('id') 
+      .single();    
 
     if (messageError) {
       logger.error(`[SupabaseSvc][DialogueID: ${dialogueId}] Ошибка сохранения сообщения (роль: ${role}):`, messageError);
       throw new Error(`Supabase: Failed to save message for role ${role}.`);
     }
-     if (!insertedMessage || !insertedMessage.id) { // Проверяем, что ID получен
+     if (!insertedMessage || !insertedMessage.id) { 
       logger.error(`[SupabaseSvc][DialogueID: ${dialogueId}] Сообщение (роль: ${role}) не было вставлено или ID не получен.`);
       throw new Error(`Supabase: Failed to save message or retrieve its ID.`);
     }
@@ -179,19 +149,13 @@ async function saveMessage(dialogueId, role, content) {
     }
     
     logger.info(`[SupabaseSvc][DialogueID: ${dialogueId}] Сообщение (роль: ${role}, DB_MsgID: ${insertedMessage.id}) успешно сохранено. Dialogue last_message_at обновлен.`);
-    return { id: insertedMessage.id }; // Возвращаем объект с ID
+    return { id: insertedMessage.id }; 
   } catch (error) {
     logger.error(`[SupabaseSvc][DialogueID: ${dialogueId}] Исключение при сохранении сообщения и обновлении диалога:`, error);
     throw error; 
   }
 }
 
-/**
- * Обновляет оценку (feedback_score) для конкретного сообщения ассистента.
- * @param {number|string} messageId - ID сообщения ассистента в таблице 'messages'.
- * @param {number} score - Оценка (1 для позитивной, -1 для негативной).
- * @returns {Promise<boolean>} true в случае успеха, false в случае ошибки.
- */
 async function updateMessageFeedback(messageId, score) {
   if (!messageId) {
     logger.error(`[SupabaseSvc] Попытка обновить оценку для null/undefined messageId.`);
@@ -199,7 +163,7 @@ async function updateMessageFeedback(messageId, score) {
   }
   logger.info(`[SupabaseSvc][MessageID: ${messageId}] Обновление оценки на: ${score}`);
   
-  const { error } = await supabase // Убрал data, т.к. без .select() он не информативен для update
+  const { error } = await supabase
     .from('messages')
     .update({ feedback_score: score })
     .eq('id', messageId)
@@ -214,6 +178,40 @@ async function updateMessageFeedback(messageId, score) {
   return true;
 }
 
+async function createLead(leadData) {
+  logger.info(`[SupabaseSvc] Создание нового лида для UserID: ${leadData.userId}...`, JSON.stringify(leadData, null, 2)); // Улучшенное логирование
+  const { data, error } = await supabase
+    .from('leads')
+    .insert([leadData])
+    .select('id')
+    .single();
+
+  if (error) {
+    logger.error(`[SupabaseSvc] Ошибка при создании лида:`, error);
+    return null;
+  }
+  if (!data || !data.id) {
+    logger.error(`[SupabaseSvc] Лид не был создан или ID не был возвращен.`);
+    return null;
+  }
+  logger.info(`[SupabaseSvc] Лид успешно создан. LeadID: ${data.id}`);
+  return data; 
+}
+
+async function updateLead(leadId, updateData) {
+  logger.info(`[SupabaseSvc] Обновление лида LeadID: ${leadId}...`, JSON.stringify(updateData, null, 2)); // Улучшенное логирование
+  const { error } = await supabase
+    .from('leads')
+    .update(updateData)
+    .eq('id', leadId);
+
+  if (error) {
+    logger.error(`[SupabaseSvc] Ошибка при обновлении лида LeadID: ${leadId}:`, error);
+    return false;
+  }
+  logger.info(`[SupabaseSvc] Лид LeadID: ${leadId} успешно обновлен.`);
+  return true;
+}
 
 module.exports = {
   getActiveDialogueId,
@@ -222,4 +220,6 @@ module.exports = {
   getAllDialogueMessages,
   saveMessage,
   updateMessageFeedback,
+  createLead,
+  updateLead,
 };

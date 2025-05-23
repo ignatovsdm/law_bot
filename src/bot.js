@@ -2,8 +2,12 @@
 const config = require('./config'); 
 
 const TelegramBot = require('node-telegram-bot-api');
-// const { registerEventHandlers } = require('./telegram/handlers'); // Закомментируем для теста
+const { registerEventHandlers } = require('./telegram/handlers');
 const logger = require('./utils/logger');
+
+// userStates БОЛЬШЕ НЕ ОБЪЯВЛЯЕТСЯ И НЕ ЭКСПОРТИРУЕТСЯ ОТСЮДА
+// const userStates = {}; 
+// module.exports.userStates = userStates; // УДАЛЕНО
 
 logger.info('============================================================');
 logger.info('[Система] Инициализация бота LegalBot...');
@@ -13,10 +17,10 @@ let bot;
 try {
     bot = new TelegramBot(config.telegramToken, { 
         polling: {
-            interval: 300, 
+            interval: 300,
             autoStart: true,
             params: {
-                timeout: 10, 
+                timeout: 10,
             }
         } 
     });
@@ -25,55 +29,27 @@ try {
     process.exit(1);
 }
 
-// !!!!! МИНИМАЛЬНЫЙ ТЕСТОВЫЙ ОБРАБОТЧИК CALLBACK_QUERY !!!!!
-bot.on('callback_query', (callbackQuery) => {
-    const cbqId = callbackQuery.id;
-    const data = callbackQuery.data;
-    const chatId = callbackQuery.message ? callbackQuery.message.chat.id : 'N/A';
-    const userId = callbackQuery.from.id;
-
-    logger.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
-    logger.error(`[CALLBACK_QUERY_TEST][BOT.JS] ПОЛУЧЕН CALLBACK_QUERY!`);
-    logger.error(`  ID: ${cbqId}`);
-    logger.error(`  From UserID: ${userId}`);
-    logger.error(`  ChatID: ${chatId}`);
-    logger.error(`  Data: ${data}`);
-    // logger.error(`  Full Object: ${JSON.stringify(callbackQuery, null, 2)}`);
-    logger.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
-
-    bot.answerCallbackQuery(cbqId, { text: 'Callback received (test)' })
-        .then(() => {
-            logger.info(`[CALLBACK_QUERY_TEST][BOT.JS] Успешно отвечено на callback_query ID: ${cbqId}`);
-        })
-        .catch(err => {
-            logger.error(`[CALLBACK_QUERY_TEST][BOT.JS] Ошибка ответа на callback_query ID: ${cbqId}`, err);
-        });
-});
-// !!!!! КОНЕЦ МИНИМАЛЬНОГО ТЕСТОВОГО ОБРАБОТЧИКА !!!!!
-
-// --- ПОЛНОСТЬЮ ЗАКОММЕНТИРОВАЛИ РЕГИСТРАЦИЮ ДРУГИХ ОБРАБОТЧИКОВ ---
-// if (typeof registerEventHandlers === 'function') { 
-//     logger.info('[Система] Регистрация стандартных обработчиков из handlers.js...');
-//     registerEventHandlers(bot); 
-// } else {
-//     logger.error('[Система] Ошибка: registerEventHandlers не является функцией!');
-// }
-logger.warn('[Система][ТЕСТ] registerEventHandlers закомментирован для изоляции callback_query.');
-
+if (typeof registerEventHandlers === 'function') {
+    logger.info('[Система] Регистрация обработчиков событий Telegram...');
+    registerEventHandlers(bot); // Передаем только bot, userStates теперь будет браться из stateService
+} else {
+    logger.error('[Система] Ошибка: registerEventHandlers не является функцией! Проверьте экспорт из src/telegram/handlers.js');
+    process.exit(1);
+}
 
 bot.on('polling_error', (error) => {
-  logger.error(`[TelegramBot][POLLING_ERROR] Код: ${error.code}. Сообщение: ${error.message}.`, error);
+  logger.error(`[TelegramBot][POLLING_ERROR] Код: ${error.code || 'Неизвестный код'}. Сообщение: ${error.message}.`, error);
   if (error.response && error.response.body) {
       logger.error('[TelegramBot][POLLING_ERROR] Тело ответа от Telegram:', error.response.body);
   }
 });
 
 bot.on('webhook_error', (error) => { 
-  logger.error(`[TelegramBot][WEBHOOK_ERROR] Код: ${error.code}. Сообщение: ${error.message}.`, error);
+  logger.error(`[TelegramBot][WEBHOOK_ERROR] Код: ${error.code || 'Неизвестный код'}. Сообщение: ${error.message}.`, error);
 });
 
 bot.on('error', (error) => {
-    logger.error('[TelegramBot][GENERAL_BOT_ERROR] Произошла общая ошибка бота:', error);
+    logger.error('[TelegramBot][GENERAL_BOT_ERROR] Произошла общая ошибка экземпляра бота:', error);
 });
 
 logger.info(`[Система] Бот "${config.xTitle}" успешно запущен.`);
@@ -93,10 +69,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 process.on('uncaughtException', (error, origin) => {
-  logger.error(`[Система] НЕПЕРЕХВАЧЕННАЯ ОШИБКА (uncaughtException)! Origin: ${origin}`, error);
+  logger.error(`[Система][FATAL] НЕПЕРЕХВАЧЕННАЯ ОШИБКА (uncaughtException)! Origin: ${origin}`, error);
   process.exit(1); 
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('[Система] НЕОБРАБОТАННЫЙ REJECT В ПРОМИСЕ (unhandledRejection)!', reason instanceof Error ? reason : new Error(JSON.stringify(reason)));
+  logger.error('[Система][FATAL] НЕОБРАБОТАННЫЙ REJECT В ПРОМИСЕ (unhandledRejection)!', reason instanceof Error ? reason : new Error(JSON.stringify(reason)));
 });

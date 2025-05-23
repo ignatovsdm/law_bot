@@ -3,14 +3,6 @@ const openrouterService = require('../services/openrouterService');
 const { SYSTEM_PROMPT_CONTENT } = require('../constants');
 const logger = require('../utils/logger');
 
-/**
- * Обрабатывает сообщение пользователя в контексте его текущего активного диалога.
- * @param {number} chatId - ID чата Telegram.
- * @param {number} userId - ID пользователя Telegram.
- * @param {string} userMessageText - Текст сообщения пользователя.
- * @returns {Promise<{text: string, dbId: number|string}|null>} Объект с текстом ответа и ID сообщения ассистента в БД, или null если произошла ошибка до возврата.
- * @throws {Error} Если не удалось обработать сообщение на каком-то из критических этапов.
- */
 async function processUserMessage(chatId, userId, userMessageText) {
   const userMsgPreview = userMessageText.length > 50 ? `"${userMessageText.substring(0,50)}..."` : `"${userMessageText}"`;
   logger.info(`[CoreLogic][ChatID: ${chatId}, UserID: ${userId}] Обработка сообщения: ${userMsgPreview}`);
@@ -51,18 +43,10 @@ async function processUserMessage(chatId, userId, userMessageText) {
   } catch (error) {
     const logPrefix = dialogueId ? `[CoreLogic][DialogueID: ${dialogueId}]` : `[CoreLogic][ChatID: ${chatId}, UserID: ${userId}]`;
     logger.error(`${logPrefix} Ошибка в processUserMessage:`, error);
-    // Важно пробросить ошибку, чтобы telegram/handlers.js мог отправить пользователю сообщение об ошибке.
-    // Если мы не пробросим, handlers.js получит undefined и может повести себя не так, как ожидается.
     throw error; 
   }
 }
 
-/**
- * Создает новый диалог для пользователя.
- * @param {number} chatId - ID чата Telegram.
- * @param {number} userId - ID пользователя Telegram.
- * @returns {Promise<string|null>} ID нового диалога или null.
- */
 async function startNewUserDialogue(chatId, userId) {
     logger.info(`[CoreLogic][ChatID: ${chatId}, UserID: ${userId}] Запрос на создание нового диалога.`);
     try {
