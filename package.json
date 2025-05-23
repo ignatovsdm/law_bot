@@ -8,6 +8,8 @@
     "fs": "^0.0.1-security",
     "node-telegram-bot-api": "^0.66.0",
     "openai": "^4.98.0",
+    "pg": "^8.16.0",
+    "postgres": "^3.4.7",
     "puppeteer": "^24.8.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
