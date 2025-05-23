@@ -2,12 +2,11 @@
 const config = require('./config'); 
 
 const TelegramBot = require('node-telegram-bot-api');
-const { registerEventHandlers } = require('./telegram/handlers');
+const { registerEventHandlers } = require('./telegram');
 const logger = require('./utils/logger');
 
-// userStates БОЛЬШЕ НЕ ОБЪЯВЛЯЕТСЯ И НЕ ЭКСПОРТИРУЕТСЯ ОТСЮДА
-// const userStates = {}; 
-// module.exports.userStates = userStates; // УДАЛЕНО
+// УДАЛЕНО: const userStates = {}; 
+// УДАЛЕНО: module.exports.userStates = userStates; 
 
 logger.info('============================================================');
 logger.info('[Система] Инициализация бота LegalBot...');
@@ -31,7 +30,7 @@ try {
 
 if (typeof registerEventHandlers === 'function') {
     logger.info('[Система] Регистрация обработчиков событий Telegram...');
-    registerEventHandlers(bot); // Передаем только bot, userStates теперь будет браться из stateService
+    registerEventHandlers(bot); 
 } else {
     logger.error('[Система] Ошибка: registerEventHandlers не является функцией! Проверьте экспорт из src/telegram/handlers.js');
     process.exit(1);

@@ -179,10 +179,10 @@ async function updateMessageFeedback(messageId, score) {
 }
 
 async function createLead(leadData) {
-  logger.info(`[SupabaseSvc] Создание нового лида для UserID: ${leadData.userId}...`, JSON.stringify(leadData, null, 2)); // Улучшенное логирование
+  logger.info(`[SupabaseSvc] Создание нового лида...`, JSON.stringify(leadData, null, 2));
   const { data, error } = await supabase
     .from('leads')
-    .insert([leadData])
+    .insert([leadData]) 
     .select('id')
     .single();
 
@@ -199,10 +199,10 @@ async function createLead(leadData) {
 }
 
 async function updateLead(leadId, updateData) {
-  logger.info(`[SupabaseSvc] Обновление лида LeadID: ${leadId}...`, JSON.stringify(updateData, null, 2)); // Улучшенное логирование
+  logger.info(`[SupabaseSvc] Обновление лида LeadID: ${leadId}...`, JSON.stringify(updateData, null, 2));
   const { error } = await supabase
     .from('leads')
-    .update(updateData)
+    .update(updateData) 
     .eq('id', leadId);
 
   if (error) {
@@ -211,6 +211,37 @@ async function updateLead(leadId, updateData) {
   }
   logger.info(`[SupabaseSvc] Лид LeadID: ${leadId} успешно обновлен.`);
   return true;
+}
+
+/**
+ * Ищет завершенный лид (статус 'collected') для указанного ID диалога.
+ * @param {string} dialogueId - UUID диалога.
+ * @returns {Promise<object|null>} Найденный лид или null.
+ */
+async function findCollectedLeadByDialogueId(dialogueId) {
+    if (!dialogueId) {
+        logger.warn(`[SupabaseSvc] Попытка найти лид для null/undefined dialogueId.`);
+        return null;
+    }
+    logger.info(`[SupabaseSvc] Поиск собранного лида для DialogueID: ${dialogueId}...`);
+    const { data, error } = await supabase
+        .from('leads')
+        .select('*') // Берем все поля лида
+        .eq('dialogue_id', dialogueId)
+        .eq('status', 'collected') // Ищем только успешно собранные
+        .limit(1)
+        .single(); // Ожидаем один или ни одного
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 - это "запись не найдена", не ошибка
+        logger.error(`[SupabaseSvc] Ошибка при поиске лида для DialogueID ${dialogueId}:`, error);
+        return null;
+    }
+    if (data) {
+        logger.info(`[SupabaseSvc] Найден собранный лид для DialogueID ${dialogueId}: LeadID ${data.id}`);
+    } else {
+        logger.info(`[SupabaseSvc] Собранный лид для DialogueID ${dialogueId} не найден.`);
+    }
+    return data; // Вернет объект лида или null
 }
 
 module.exports = {
@@ -222,4 +253,5 @@ module.exports = {
   updateMessageFeedback,
   createLead,
   updateLead,
+  findCollectedLeadByDialogueId, // <--- НОВАЯ ЭКСПОРТИРУЕМАЯ ФУНКЦИЯ
 };
